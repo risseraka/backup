@@ -1,0 +1,23 @@
+{
+  "name": "oauth-test",
+  "version": "0.0.1",
+  "description": "oauth test",
+  "main": "index.js",
+  "dependencies": {
+    "express": "~3.4.7",
+    "passport-facebook": "~1.0.2",
+    "passport": "~0.1.17",
+    "fbgraph": "~0.2.8"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "test",
+    "start": "node ."
+  },
+  "keywords": [
+    "oauth",
+    "test"
+  ],
+  "author": "risseraka@gmail.com",
+  "license": "ISC"
+}
