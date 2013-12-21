@@ -1,10 +1,12 @@
 var fs = require('fs');
 var http = require('http');
 var https = require('https');
+
 var privateKey  = fs.readFileSync('sslcert/ca.key', 'utf8');
 var certificate = fs.readFileSync('sslcert/ca.crt', 'utf8');
 
 var credentials = {key: privateKey, cert: certificate};
+
 var express = require('express');
 var app = express();
 
@@ -12,8 +14,8 @@ var passport = require('passport');
 var FacebookStrategy = require('passport-facebook');
 
 var fb = {
-    clientId: '109832835726216',
-    clientSecret: 'a5daf22295da9997324a5228d389c9dd'
+    clientId: '92601131724',
+    clientSecret: 'd14f54eb8013c4604687225fc905e160'
 };
 
 var fbgraph = require('fbgraph');
@@ -29,91 +31,92 @@ app.configure(function() {
     app.use(app.router);
 });
 
-var User = {
-    users: {
-    'facebook': {},
-    'twitter': {},
-    'google': {}
-    },
-    findOrCreate: function (profile, callback) {
-    if (!profile) {
-        return callback('no valid profile provided');
-    }
+var User = require('./providers');
 
-    if (profile.provider === 'facebook') {
-        User.users.facebook[profile.id] = profile;
-        return callback(null, profile);
+function ensureAuthentication(req, res, next) {
+    if (!req.isAuthenticated()) {
+	return res.redirect('/login');
     }
-    }
-};
+    next();
+}
 
 app.get(
-    '/app_dev.php/social/facebook/callback',
-    passport.authenticate('facebook', { failureRedirect: '/login' }),
-    function(req, res) {
-    res.send(
-        'Hello World from facebook!' +
-        '<pre>' + JSON.stringify(req.user) + '</pre>'
-    );
+    '/facebook/api',
+    ensureAuthentication,
+    function (req, res, next) {
+	try {
+            var accessToken = req.user.providers.facebook.tokens.accessToken;
+	} catch (e) {
+	    return next(e);
+	}
+
+        fbgraph.setAccessToken(accessToken);
+
+        fbgraph.get('me', function (err, statuses) {
+            return res.send(statuses);
+            res.send(
+                statuses.posts.map(
+                    function (post) {
+                        return post;
+                    }
+                )
+            );
+        });
     }
 );
 
 app.get(
-    '/facebook/api',
-    function (req, res) {
-    var accessToken = req.user && req.user.accessToken ||
-        'CAABj5HMoe4gBAOCu9UhkwDEV8jETGdZBZA5Yhxxa5X2C07snhdlkOe7FU9b9U0zbeVVd9YKkEPQfzlv8u1UCdimnBqTYlkk53y8zZBZB9sS8tR39s97pNvyRxfPtkfMIN6XYbE9yep6cqmaoKv9yL60qAE69X7NPOTpjfTR0t0KaocP8SILP';
-    fbgraph.setAccessToken(accessToken);
-
-    fbgraph.get('me/statuses', function (err, statuses) {
-        return res.send(statuses);
-        res.send(
-        statuses.posts.map(
-            function (post) {
-            return post;
-            }
-        )
-        );
-    });
-    }
-)
+    '/facebook/callback',
+    passport.authenticate('facebook', {
+        failureRedirect: '/login',
+        successRedirect: '/'
+    })
+);
 
 app.get(
     '/facebook',
     passport.authenticate(
-    'facebook'
+        'facebook'
     )
 );
-
-app.get('/', function (req, res) {
-    res.send('hello World<br/><a href="/login">Login</a>');
-});
 
 app.get('/login', function (req, res) {
     res.send('<a href="/facebook">login with facebook</a>');
 });
 
+app.get('/', function (req, res) {
+    if (req.isAuthenticated()) {
+        return res.send(req.user);
+    }
+
+    res.send('hello World<br/><a href="/login">Login</a>');
+});
+
 var facebookStrategy = new FacebookStrategy({
     clientID: fb.clientId,
     clientSecret: fb.clientSecret,
-    callbackURL: "https://webaserver.com/app_dev.php/social/facebook/callback"
+    callbackURL: "https://localhost.com/facebook/callback"
 }, function (accessToken, refreshToken, profile, done) {
-    console.log(accessToken);
+    User.findOrCreateFromProviderProfile(profile, function (err, user) {
+        user.providers.facebook.tokens = {
+            accessToken: accessToken,
+            refreshToken: refreshToken
+        };
 
-    User.findOrCreate(profile, function (err, user) {
-    user.accessToken = accessToken;
-    return done(err, user);
+        return done(err, user);
     });
 });
 
 passport.use(facebookStrategy);
 
 passport.serializeUser(function (user, done) {
-    done(null, user);
+    done(null, user.id);
 });
 
-passport.deserializeUser(function (user, done) {
-    done(null, user);
+passport.deserializeUser(function (id, done) {
+    User.findById(id, function (err, user) {
+        done(err, user);
+    });
 });
 
 var httpServer = http.createServer(app);

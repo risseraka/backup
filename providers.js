@@ -1,0 +1,156 @@
+var AugmentedUser = (function (User, log) {
+
+    var providers = (function (providers) {
+        providers.forEach(function (provider) {
+            providers[provider.name] = provider;
+        });
+
+        superForEach = providers.forEach;
+        providers.forEach = function (fn) {
+            superForEach.call(providers, function (provider, i, providers) {
+                fn.call(providers, provider.name, i, providers);
+            });
+        };
+
+        providers.getProfileId = function (profile) {
+	    if (profile.provider === undefined) {
+		console.log('[getProfileId], profile:', profile);
+	    }
+
+            return profile[
+		providers[profile.provider].profileId
+	    ];
+        };
+
+        return providers;
+    }([
+        {
+            name: 'facebook',
+            profileId: 'id'
+        },
+        {
+            name: 'twitter',
+            profileId: 'id_str'
+        }
+    ]));
+
+    var index = {};
+
+    var superRemove = User.remove;
+    function remove(user, done) {
+	log('[user[' + user.id + '].remove]', 'removing providers profiles');
+
+        var profiles = user.providers;
+
+        locallog('');
+
+        providers.forEach(function (provider) {
+            var profile = profiles[provider];
+
+            if (profile) {
+                var profileId = providers.getProfileId(profile);
+
+                delete index[provider][profileId];
+            }
+        });
+
+        superRemove();
+    }
+    User.remove = remove;
+
+    function setProviderProfile(user, profile, done) {
+	log(
+	    '[user[' + user.id + '].setProviderProfile]',
+	    'provider:', profile.provider,
+	    ', profileId:', providers.getProfileId(profile)
+	);
+
+        var provider = profile.provider;
+
+        user.providers[provider] = profile;
+
+        done(null, user);
+    }
+
+    var superCreate = User.create;
+    function create() {
+        var user = superCreate();
+
+        user.providers = {};
+
+	user.remove = remove.bind(this, user);
+        user.setProviderProfile = setProviderProfile.bind(this, user);
+
+	return user;
+    }
+
+    providers.forEach(function (provider) {
+        index[provider] = {};
+    });
+
+    function findByProviderProfile(profile, done) {
+        var provider = profile.provider;
+        var profileId = providers.getProfileId(profile);
+
+        log('[findByProviderProfile] provider:', provider, ', profileId:', profileId);
+
+        done(null, index[provider][profileId]);
+    }
+    User.findByProviderProfile = findByProviderProfile;
+
+    function isSupportedProvider(provider, done) {
+        if (!providers[provider]) {
+            return done(new Error('unsupported provider:', provider));
+        }
+
+        done(null);
+    }
+
+    function findOrCreateFromProviderProfile(profile, done) {
+        if (!profile) {
+            return done(new Error('no profile'));
+        }
+
+        var provider = profile.provider;
+        var profileId = providers.getProfileId(profile);
+
+        log('[findOrCreateFromProviderProfile] provider:', provider, ', profileId:', profileId);
+
+        isSupportedProvider(profile.provider, function (err) {
+            if (err) {
+                return done(err);
+            }
+
+            findByProviderProfile(profile, function (err, user) {
+		if (err) {
+                    return done(err);
+		}
+
+		if (!user) {
+                    user = create();
+                    index[provider][profileId] = user;
+		}
+
+		user.setProviderProfile(profile, function (err, user) {
+                    if (err) {
+			return done(err);
+                    }
+
+                    user.save(function (err, user) {
+			if (err) {
+                            return done(err);
+			}
+
+			done(null, user);
+                    });
+		});
+            });
+        });
+    }
+
+    User.findOrCreateFromProviderProfile = findOrCreateFromProviderProfile;
+
+    return User;
+}(require('./user'), require('./logger')('[User]')));
+
+module.exports = AugmentedUser;
