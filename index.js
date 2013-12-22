@@ -45,11 +45,92 @@ app.configure(function() {
 
 var User = require('./providers');
 
+/**
+ * Passport setup
+ */
+var facebookStrategy = new FacebookStrategy(
+    {
+        clientID: fb.clientId,
+        clientSecret: fb.clientSecret,
+        callbackURL: "https://localhost.com/facebook/callback"
+    },
+    function (accessToken, refreshToken, profile, done) {
+        profile.tokens = {
+            accessToken: accessToken,
+            refreshToken: refreshToken
+        };
+
+        return done(null, profile);
+    }
+);
+
+var twitterStrategy = new TwitterStrategy(
+    {
+        consumerKey: tw.consumerKey,
+        consumerSecret: tw.consumerSecret,
+        callbackURL: "https://localhost.com/twitter/callback"
+    },
+    function (token, tokenSecret, profile, done) {
+        profile.tokens = {
+            accessToken: token,
+            accessTokenSecret: tokenSecret
+        };
+
+        return done(null, profile);
+    }
+);
+
+passport.use(facebookStrategy);
+passport.use(twitterStrategy);
+
+passport.serializeUser(function serializeUser(user, done) {
+    done(null, user.id);
+});
+
+passport.deserializeUser(function deserializeUser(id, done) {
+    User.findById(id, function (err, user) {
+        done(err, user);
+    });
+});
+
 function ensureAuthentication(req, res, next) {
     if (!req.isAuthenticated()) {
         return res.redirect('/login');
     }
     next();
+}
+
+function authenticateProvider(provider) {
+    return function (req, res, next) {
+        passport.authenticate(provider, function (err, profile, info) {
+            if (err) {
+                return next(err);
+            }
+
+            // auth successfull, user is not logged in
+            if (!req.isAuthenticated()) {
+                return User.findOrCreateFromProviderProfile(profile, function (err, user) {
+                    if (err) {
+                        return done(err);
+                    }
+
+                    return req.logIn(user, function () {
+                        res.redirect('/');
+                    });
+                });
+            }
+
+            // auth successfull, user is already logged in
+            // link profile to other possibly connected account
+            req.user.setProviderProfile(profile, function (err, user) {
+                if (err) {
+                    return done(err);
+                }
+
+                res.redirect('/');
+            });
+        })(req, res, next);
+    };
 }
 
 /**
@@ -114,10 +195,7 @@ app.get(
 
 app.get(
     '/twitter/callback',
-    passport.authenticate('twitter', {
-        failureRedirect: '/login',
-        successRedirect: '/'
-    })
+    authenticateProvider('twitter')
 );
 
 app.get(
@@ -135,59 +213,20 @@ app.get('/login', function (req, res) {
     );
 });
 
+app.get('/logout', function (req, res) {
+    if (req.isAuthenticated()) {
+	req.logOut();
+    }
+
+    return res.redirect('/');
+});
+
 app.get('/', function (req, res) {
     if (req.isAuthenticated()) {
         return res.send(req.user);
     }
 
     res.send('hello World<br/><a href="/login">Login</a>');
-});
-
-var facebookStrategy = new FacebookStrategy({
-    clientID: fb.clientId,
-    clientSecret: fb.clientSecret,
-    callbackURL: "https://localhost.com/facebook/callback"
-}, function (accessToken, refreshToken, profile, done) {
-    User.findOrCreateFromProviderProfile(profile, function (err, user) {
-        user.providers.facebook.tokens = {
-            accessToken: accessToken,
-            refreshToken: refreshToken
-        };
-
-        return done(err, user);
-    });
-});
-
-var twitterStrategy = new TwitterStrategy({
-    consumerKey: tw.consumerKey,
-    consumerSecret: tw.consumerSecret,
-    callbackURL: "https://localhost.com/twitter/callback"
-}, function (token, tokenSecret, profile, done) {
-    if (false && req.user) {
-	console.log('twitterStrategy, req.user:', req.user.id);
-    }
-
-    User.findOrCreateFromProviderProfile(profile, function (err, user) {
-        user.providers.twitter.tokens = {
-            accessToken: token,
-            accessTokenSecret: tokenSecret
-        };
-
-        return done(err, user);
-    });
-});
-
-passport.use(facebookStrategy);
-passport.use(twitterStrategy);
-
-passport.serializeUser(function (user, done) {
-    done(null, user.id);
-});
-
-passport.deserializeUser(function (id, done) {
-    User.findById(id, function (err, user) {
-        done(err, user);
-    });
 });
 
 var httpServer = http.createServer(app);

@@ -2,37 +2,11 @@ var AugmentedUser = (function (User, log) {
 
     var providers = (function (providers) {
         providers.forEach(function (provider) {
-            providers[provider.name] = provider;
+            providers[provider] = provider;
         });
 
-        superForEach = providers.forEach;
-        providers.forEach = function (fn) {
-            superForEach.call(providers, function (provider, i, providers) {
-                fn.call(providers, provider.name, i, providers);
-            });
-        };
-
-        providers.getProfileId = function (profile) {
-	    if (profile.provider === undefined) {
-		console.log('[getProfileId], profile:', profile);
-	    }
-
-            return profile[
-		providers[profile.provider].profileId
-	    ];
-        };
-
         return providers;
-    }([
-        {
-            name: 'facebook',
-            profileId: 'id'
-        },
-        {
-            name: 'twitter',
-            profileId: 'id_str'
-        }
-    ]));
+    }(['facebook', 'twitter']));
 
     var index = {};
 
@@ -48,7 +22,7 @@ var AugmentedUser = (function (User, log) {
             var profile = profiles[provider];
 
             if (profile) {
-                var profileId = providers.getProfileId(profile);
+                var profileId = profile.id;
 
                 delete index[provider][profileId];
             }
@@ -90,7 +64,7 @@ var AugmentedUser = (function (User, log) {
 
     function findByProviderProfile(profile, done) {
         var provider = profile.provider;
-        var profileId = providers.getProfileId(profile);
+        var profileId = profile.id;
 
         log('[findByProviderProfile] provider:', provider, ', profileId:', profileId);
 
@@ -112,7 +86,7 @@ var AugmentedUser = (function (User, log) {
         }
 
         var provider = profile.provider;
-        var profileId = providers.getProfileId(profile);
+        var profileId = profile.id;
 
         log('[findOrCreateFromProviderProfile] provider:', provider, ', profileId:', profileId);
 
