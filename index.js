@@ -24,6 +24,8 @@ app.configure(function() {
     app.use(app.router);
 });
 
+var render = require('./render')('views/');
+
 /**
  * Passport session serialization
  */
@@ -199,9 +201,11 @@ app.get(
  */
 app.get('/login', function (req, res) {
     res.send(
-	User.providers.map(function (provider) {
-            return '<a href="/' + provider + '">login with ' + provider + '</a>';
-	}).join('<br/>')
+	render('login.html', {
+	    SocialLogins: User.providers.map(function (provider) {
+		return render('socialLogin.html', { provider: provider });
+	    }).join('')
+	})
     );
 });
 
@@ -214,21 +218,18 @@ app.get('/logout', function (req, res) {
 });
 
 app.get('/', function (req, res) {
+    var data, status = '';
+
     var authed = req.isAuthenticated();
+    if (authed) {
+	status = 'authed/';
+	data = {
+	    name: 'user ' + req.user.id,
+	    connectedProfiles: Object.keys(req.user.providers).join(', ')
+	};
+    }
 
-    var html = (
-	'Hello %name%!' +
-	    '<br/>' +
-	    (authed ? 'conected profiles: %connectedProfiles%' : '') +
-	    '<br/>' +
-	    '<a href="%action%">%action%</a>'
-    )
-	    .replace('%name%', authed ? 'user ' + req.user.id : 'world')
-	    .replace(/%action%/g, authed ? 'logout' : 'login')
-	    .replace('%connectedProfiles%', authed ? Object.keys(req.user.providers).join(', ') : '')
-    ;
-
-    res.send(html);
+    res.send(render(status + 'index.html', data));
 });
 
 var httpServer = http.createServer(app);
