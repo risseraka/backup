@@ -39,6 +39,16 @@ module.exports = function (passport, User) {
     /**
      * Authentication ensurers
      */
+
+    function makeProviderAuthEnsurer(provider) {
+	return function ensureProviderAuthenticated(req, res, next) {
+	    if (!req.isAuthenticated() || !req.user.providers[provider]) {
+		return res.redirect('/login');
+	    }
+	    next();
+	};
+    }
+
     function makeProviderNonAuthEnsurer(provider) {
 	return function ensureProviderNonAuthenticated(req, res, next) {
 	    if (req.isAuthenticated() && req.user.providers[provider]) {
@@ -48,14 +58,19 @@ module.exports = function (passport, User) {
 	};
     }
 
-    var ensureNonAuthentication = User.providers.reduce(function (nonAuth, provider) {
-	nonAuth[provider] = makeProviderNonAuthEnsurer(provider);
-	return nonAuth;
+    var ensure = User.providers.reduce(function (ensure, provider) {
+	ensure[provider] = {
+	    Authentication: makeProviderAuthEnsurer(provider),
+	    non: {
+		Authentication: makeProviderNonAuthEnsurer(provider)
+	    }
+	};
+	return ensure;
     }, {});
 
     return {
 	authenticate: authenticate,
-	ensureNonAuthentication: ensureNonAuthentication
+	ensure: ensure
     };
 
 };

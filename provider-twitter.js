@@ -41,13 +41,13 @@ module.exports = function (app, passport, Providers, keys) {
 
     app.get(
         callbackPath,
-        Providers.ensureNonAuthentication[provider],
+        Providers.ensure[provider].non.Authentication,
         Providers.authenticate(provider)
     );
 
     app.get(
         authenticationPath,
-        Providers.ensureNonAuthentication[provider],
+        Providers.ensure[provider].non.Authentication,
         passport.authenticate(provider)
     );
 

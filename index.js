@@ -62,49 +62,11 @@ require('./provider-facebook')(app, passport, Providers, config.facebook);
 require('./provider-twitter')(app, passport, Providers, config.twitter);
 require('./provider-google')(app, passport, Providers, config.google);
 
-/**
- * Social APIs
- */
-
-var SocialApi = {};
+var SocialApi = require('./socialApi')(config);
+require('./socialApiRoutes')(app, SocialApi, Providers);
 
 /**
- * Facebook API
- */
-SocialApi['facebook'] = require('fbgraph');
-
-/**
- * Twitter API
- */
-var Twit = require('twit');
-SocialApi['twitter'] = new Twit({
-    consumer_key: config.twitter.consumerKey,
-    consumer_secret: config.twitter.consumerSecret,
-    access_token: ' ',
-    access_token_secret: ' '
-});
-
-/**
- * Google API
- */
-var googleapis = require('googleapis');
-var OAuth2 = googleapis.auth.OAuth2Client;
-var oauth2Client = new OAuth2(
-    config.google.clientId,
-    config.google.clientSecret,
-    config.google.callbackURL
-);
-
-googleapis
-    .discover('plus', 'v1')
-    .execute(function(err, client) {
-	client.plus.withAuthClient(oauth2Client);
-
-	SocialApi['google'] = client.plus;
-    });
-
-/**
- * Social API routes
+ * Main Express routes
  */
 
 function ensureAuthentication(req, res, next) {
@@ -114,91 +76,6 @@ function ensureAuthentication(req, res, next) {
     next();
 }
 
-/**
- * Facebook API route
- */
-app.get(
-    '/' + 'facebook' + '/api',
-    ensureAuthentication,
-    function (req, res, next) {
-        try {
-            var accessToken = req.user.providers['facebook'].tokens.accessToken;
-        } catch (e) {
-            return next(e);
-        }
-
-        SocialApi['facebook'].setAccessToken(accessToken);
-
-        SocialApi['facebook'].get('me/statuses', function (err, statuses) {
-            return res.send(statuses);
-        });
-    }
-);
-
-/**
- * Twitter API route
- */
-app.get(
-    '/' + 'twitter' + '/api',
-    ensureAuthentication,
-    function (req, res, next) {
-        try {
-            var tokens = req.user.providers['twitter'].tokens;
-        } catch (e) {
-            return next(e);
-        }
-
-        SocialApi['twitter'].setAuth({
-            access_token: tokens.accessToken,
-            access_token_secret: tokens.accessTokenSecret
-        });
-
-        SocialApi['twitter'].get('statuses/user_timeline', function (err, statuses) {
-            return res.send(statuses);
-        });
-    }
-);
-
-/**
- * Google API route
- */
-app.get(
-    '/' + 'google' + '/api',
-    ensureAuthentication,
-    function (req, res, next) {
-	if (!SocialApi['google']) {
-	    return next(new Error('Google plus api is not loaded yet. Please come back later'));
-	}
-
-        try {
-            var tokens = req.user.providers['google'].tokens;
-        } catch (e) {
-            return next(e);
-        }
-
-	oauth2Client.credentials = {
-	    access_token: tokens.accessToken,
-	    refresh_token: tokens.refeshToken
-	};
-
-        SocialApi['google'].activities.list(
-	    {
-		userId: 'me',
-		collection: 'public'
-	    })
-	    .execute(function (err, statuses) {
-		if (err) {
-		    return next(err.message);
-		}
-
-		return res.send(statuses);
-            });
-    }
-);
-
-/**
- * Main Express routes
- */
 app.get('/login', function (req, res) {
     res.send(
 	render('login.html', {
