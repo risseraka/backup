@@ -18,8 +18,6 @@ var AugmentedUser = (function (User, log) {
 
         var profiles = user.providers;
 
-        locallog('');
-
         providers.forEach(function (provider) {
             var profile = profiles[provider];
 
@@ -127,6 +125,6 @@ var AugmentedUser = (function (User, log) {
     User.findOrCreateFromProviderProfile = findOrCreateFromProviderProfile;
 
     return User;
-}(require('./user'), require('./logger')('[User]')));
+}(require('./User'), require('./logger')('[User]')));
 
 module.exports = AugmentedUser;

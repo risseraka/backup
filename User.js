@@ -50,7 +50,6 @@ var User = (function (log) {
     }
 
     function findOrCreate() {
-        
     }
 
     return {
