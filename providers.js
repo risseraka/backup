@@ -6,7 +6,9 @@ var AugmentedUser = (function (User, log) {
         });
 
         return providers;
-    }(['facebook', 'twitter']));
+    }(['facebook', 'twitter', 'google']));
+
+    User.providers = providers;
 
     var index = {};
 

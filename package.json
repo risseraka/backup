@@ -5,9 +5,13 @@
   "main": "index.js",
   "dependencies": {
     "express": "~3.4.7",
-    "passport-facebook": "~1.0.2",
     "passport": "~0.1.17",
-    "fbgraph": "~0.2.8"
+    "passport-facebook": "~1.0.2",
+    "passport-twitter": "~1.0.2",
+    "passport-google-oauth": "~0.1.5",
+    "fbgraph": "~0.2.8",
+    "twit": "~1.1.11",
+    "googleapis": "~0.4.7"
   },
   "devDependencies": {},
   "scripts": {

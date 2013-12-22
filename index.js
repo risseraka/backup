@@ -13,18 +13,42 @@ var app = express();
 var passport = require('passport');
 var FacebookStrategy = require('passport-facebook');
 var TwitterStrategy = require('passport-twitter');
+var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 
+var User = require('./providers');
+
+// Facebook
 var fb = {
+    name: 'facebook',
     clientId: '92601131724',
-    clientSecret: 'd14f54eb8013c4604687225fc905e160'
+    clientSecret: 'd14f54eb8013c4604687225fc905e160',
+    callbackURL: 'https://localhost.com/facebook/callback'
 };
 
+// Twitter
 var tw = {
+    name: 'twitter',
     consumerKey: 'XDhPOfEgvAfzFUPUWHhQ',
-    consumerSecret: 'dUT9wdqV0neYu93qsQE79Ny8JzY6blK8BoVb1mfeDBM'
+    consumerSecret: 'dUT9wdqV0neYu93qsQE79Ny8JzY6blK8BoVb1mfeDBM',
+    callbackURL: 'https://localhost.com/twitter/callback'
 };
 
+// Google+
+var gg = {
+    name: 'google',
+    clientID: '410681330301.apps.googleusercontent.com',
+    clientSecret: 'I2xgEom_U-mMvBRCBCzQ3W5I',
+    callbackURL: 'https://localhost.com/google/callback'
+};
+
+/**
+ * Facebook API
+ */
 var fbgraph = require('fbgraph');
+
+/**
+ * Twitter API
+ */
 var Twit = require('twit');
 var twitapi = new Twit({
     consumer_key: tw.consumerKey,
@@ -32,6 +56,21 @@ var twitapi = new Twit({
     access_token: ' ',
     access_token_secret: ' '
 });
+
+/**
+ * Google API
+ */
+var googleapis = require('googleapis');
+var plusapi;
+
+googleapis
+    .discover('plus', 'v1')
+    .execute(function(err, client) {
+	plusapi = client.plus;
+    });
+
+var OAuth2 = googleapis.auth.OAuth2Client;
+var oauth2Client = new OAuth2(gg.clientId, gg.clientSecret, gg.callbackURL);
 
 app.configure(function() {
     app.use(express.static('public'));
@@ -43,8 +82,6 @@ app.configure(function() {
     app.use(app.router);
 });
 
-var User = require('./providers');
-
 /**
  * Passport setup
  */
@@ -52,7 +89,7 @@ var facebookStrategy = new FacebookStrategy(
     {
         clientID: fb.clientId,
         clientSecret: fb.clientSecret,
-        callbackURL: "https://localhost.com/facebook/callback"
+        callbackURL: fb.callbackURL
     },
     function (accessToken, refreshToken, profile, done) {
         profile.tokens = {
@@ -68,7 +105,7 @@ var twitterStrategy = new TwitterStrategy(
     {
         consumerKey: tw.consumerKey,
         consumerSecret: tw.consumerSecret,
-        callbackURL: "https://localhost.com/twitter/callback"
+        callbackURL: tw.callbackURL
     },
     function (token, tokenSecret, profile, done) {
         profile.tokens = {
@@ -80,8 +117,25 @@ var twitterStrategy = new TwitterStrategy(
     }
 );
 
+var googleStrategy = new GoogleStrategy(
+    {
+        clientID: gg.clientID,
+        clientSecret: gg.clientSecret,
+        callbackURL: gg.callbackURL
+    },
+    function (accessToken, refreshToken, profile, done) {
+        profile.tokens = {
+            accessToken: accessToken,
+            refreshToken: refreshToken
+        };
+
+        return done(null, profile);
+    }
+);
+
 passport.use(facebookStrategy);
 passport.use(twitterStrategy);
+passport.use(googleStrategy);
 
 passport.serializeUser(function serializeUser(user, done) {
     done(null, user.id);
@@ -92,6 +146,20 @@ passport.deserializeUser(function deserializeUser(id, done) {
         done(err, user);
     });
 });
+
+function makeProviderNonAuthEnsurer(provider) {
+    return function ensureProviderNonAuthenticated(req, res, next) {
+	if (req.isAuthenticated() && req.user.providers[provider]) {
+            return res.redirect('/');
+	}
+	next();
+    };
+}
+
+var ensureNonAuthentication = User.providers.reduce(function (nonAuth, provider) {
+    nonAuth[provider] = makeProviderNonAuthEnsurer(provider);
+    return nonAuth;
+}, {});
 
 function ensureAuthentication(req, res, next) {
     if (!req.isAuthenticated()) {
@@ -111,7 +179,7 @@ function authenticateProvider(provider) {
             if (!req.isAuthenticated()) {
                 return User.findOrCreateFromProviderProfile(profile, function (err, user) {
                     if (err) {
-                        return done(err);
+                        return next(err);
                     }
 
                     return req.logIn(user, function () {
@@ -124,7 +192,7 @@ function authenticateProvider(provider) {
             // link profile to other possibly connected account
             req.user.setProviderProfile(profile, function (err, user) {
                 if (err) {
-                    return done(err);
+                    return next(err);
                 }
 
                 res.redirect('/');
@@ -156,15 +224,17 @@ app.get(
 
 app.get(
     '/facebook/callback',
+    ensureNonAuthentication['facebook'],
     authenticateProvider('facebook')
 );
 
 app.get(
     '/facebook',
+    ensureNonAuthentication['facebook'],
     passport.authenticate(
         'facebook',
         {
-            'scope': ['user_status']
+            'scope': ['user_status', 'email']
         }
     )
 );
@@ -195,21 +265,78 @@ app.get(
 
 app.get(
     '/twitter/callback',
+    ensureNonAuthentication['twitter'],
     authenticateProvider('twitter')
 );
 
 app.get(
     '/twitter',
+    ensureNonAuthentication['twitter'],
     passport.authenticate(
         'twitter'
     )
 );
 
+/**
+ * Google
+ */
+app.get(
+    '/google/api',
+    ensureAuthentication,
+    function (req, res, next) {
+	if (!plusapi) {
+	    return next(new Error('Google plus api is not loaded yet. Please come back later'));
+	}
+
+        try {
+            var tokens = req.user.providers.google.tokens;
+        } catch (e) {
+            return next(e);
+        }
+
+	oauth2Client.credentials = {
+	    access_token: tokens.accessToken,
+	    refresh_token: tokens.refeshToken
+	};
+
+        plusapi.activities.list(
+	    {
+		userId: 'me',
+		collection: 'public'
+	    })
+	    .withAuthClient(oauth2Client)
+	    .execute(function (err, statuses) {
+		if (err) {
+		    return next(err.message);
+		}
+
+		return res.send(statuses);
+            });
+    }
+);
+
+app.get(
+    '/google/callback',
+    ensureNonAuthentication['google'],
+    authenticateProvider('google')
+);
+
+app.get(
+    '/google',
+    ensureNonAuthentication['google'],
+    passport.authenticate(
+        'google',
+	{
+	    scope: 'profile email https://www.googleapis.com/auth/plus.login'
+	}
+    )
+);
+
 app.get('/login', function (req, res) {
     res.send(
-        '<a href="/facebook">login with facebook</a>' +
-            '<br/>' +
-            '<a href="/twitter">login with twitter</a>'
+	User.providers.map(function (provider) {
+            return '<a href="/' + provider + '">login with ' + provider + '</a>';
+	}).join('<br/>')
     );
 });
 
