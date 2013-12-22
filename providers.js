@@ -38,7 +38,7 @@ var AugmentedUser = (function (User, log) {
 
     var superRemove = User.remove;
     function remove(user, done) {
-	log('[user[' + user.id + '].remove]', 'removing providers profiles');
+        log('[user[' + user.id + '].remove]', 'removing providers profiles');
 
         var profiles = user.providers;
 
@@ -59,11 +59,11 @@ var AugmentedUser = (function (User, log) {
     User.remove = remove;
 
     function setProviderProfile(user, profile, done) {
-	log(
-	    '[user[' + user.id + '].setProviderProfile]',
-	    'provider:', profile.provider,
-	    ', profileId:', providers.getProfileId(profile)
-	);
+        log(
+            '[user[' + user.id + '].setProviderProfile]',
+            'provider:', profile.provider,
+            ', profileId:', profile.id
+        );
 
         var provider = profile.provider;
 
@@ -78,10 +78,10 @@ var AugmentedUser = (function (User, log) {
 
         user.providers = {};
 
-	user.remove = remove.bind(this, user);
+        user.remove = remove.bind(this, user);
         user.setProviderProfile = setProviderProfile.bind(this, user);
 
-	return user;
+        return user;
     }
 
     providers.forEach(function (provider) {
@@ -122,28 +122,28 @@ var AugmentedUser = (function (User, log) {
             }
 
             findByProviderProfile(profile, function (err, user) {
-		if (err) {
+                if (err) {
                     return done(err);
-		}
+                }
 
-		if (!user) {
+                if (!user) {
                     user = create();
                     index[provider][profileId] = user;
-		}
+                }
 
-		user.setProviderProfile(profile, function (err, user) {
+                user.setProviderProfile(profile, function (err, user) {
                     if (err) {
-			return done(err);
+                        return done(err);
                     }
 
                     user.save(function (err, user) {
-			if (err) {
+                        if (err) {
                             return done(err);
-			}
+                        }
 
-			done(null, user);
+                        done(null, user);
                     });
-		});
+                });
             });
         });
     }

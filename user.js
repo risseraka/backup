@@ -7,7 +7,7 @@ var User = (function (log) {
     };
 
     function save(user, done) {
-	log('[user[' + user.id  + '].save]');
+        log('[user[' + user.id  + '].save]');
 
         if (!users[user.id]) {
             index.length += 1;
@@ -34,7 +34,7 @@ var User = (function (log) {
             email: ''
         };
 
-	log('[user[' + user.id + '].create]');
+        log('[user[' + user.id + '].create]');
 
         // Public methods
         user.save = save.bind(this, user);
