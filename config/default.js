@@ -1,7 +1,7 @@
 module.exports = {
     facebook: {
-	clientId: '92601131724',
-	clientSecret: 'd14f54eb8013c4604687225fc905e160'
+        clientId: '92601131724',
+        clientSecret: 'd14f54eb8013c4604687225fc905e160'
     },
 
     twitter: {
@@ -10,7 +10,7 @@ module.exports = {
     },
 
     google: {
-	clientId: '410681330301.apps.googleusercontent.com',
-	clientSecret: 'I2xgEom_U-mMvBRCBCzQ3W5I'
+        clientId: '410681330301.apps.googleusercontent.com',
+        clientSecret: 'I2xgEom_U-mMvBRCBCzQ3W5I'
     }
 };
