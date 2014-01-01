@@ -2,7 +2,10 @@ module.exports = {
     memcache: {
         engine: 'memcache',
         partition: 'auth',
-        location: '127.0.0.1:11211'
+        location: '127.0.0.1:11211',
+        ttl: {
+            user: 24 * 3600 * 1000
+        }
     },
 
     facebook: {
