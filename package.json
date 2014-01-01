@@ -12,7 +12,8 @@
     "fbgraph": "~0.2.8",
     "twit": "~1.1.11",
     "googleapis": "~0.4.7",
-    "config": "~0.4.33"
+    "config": "~0.4.33",
+    "connect-memcached": "0.0.6"
   },
   "devDependencies": {},
   "scripts": {

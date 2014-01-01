@@ -1,4 +1,10 @@
 module.exports = {
+    memcache: {
+        engine: 'memcache',
+        partition: 'auth',
+        location: '127.0.0.1:11211'
+    },
+
     facebook: {
         clientId: '92601131724',
         clientSecret: 'd14f54eb8013c4604687225fc905e160'
