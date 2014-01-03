@@ -1,0 +1,5 @@
+<% if (!user || user.providers[provider] === undefined) { %>
+<div><a href="/<%= provider %>">login with <%= provider %></a></div>
+<% } else { %>
+<div><a href="/<%= provider %>/logout">logout from <%= provider %></a></div>
+<% } %>

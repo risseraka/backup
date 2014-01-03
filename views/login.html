@@ -1,5 +1,7 @@
 <span>Login with:</span>
 
 <div>
-  %SocialLogins%
+  <% providers.forEach(function (provider) { %>
+    <% include templates/socialLogin.html %>
+  <% }) %>
 </div>

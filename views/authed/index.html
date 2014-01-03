@@ -1,10 +1,13 @@
 <p>
-  <span>Hello %name%</span>
+  <span>Hello <%= user.id %></span>
 </p>
 
 <p>
   <div>
-    connected profiles: %connectedProfiles%
+    connected profiles: <%= Object.keys(user.providers).join(', ') %>
+  </div>
+  <div>
+    <a href="login">sync status</a>
   </div>
   <div>
     <a href="logout">logout</a>
@@ -13,6 +16,6 @@
 
 <p>
   <div>
-    <span>visits: %visits%</span>
+    <span>visits: <%= visits %></span>
   </div>
 </p>
